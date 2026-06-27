@@ -10,7 +10,6 @@
     --dpd:#d60000;
     --gls:#0b2a6f;
     --hermes:#4aa3ff;
-
     --bg:#f4f6f8;
     --card:#fff;
     --text:#111;
@@ -34,7 +33,7 @@ body{
     display:flex;
     justify-content:center;
     align-items:center;
-    font-size:28px;
+    font-size:30px;
     font-weight:bold;
     color:white;
     cursor:pointer;
@@ -44,6 +43,7 @@ body{
 .gls{background:var(--gls);}
 .hermes{background:var(--hermes);}
 
+/* APP */
 .app{display:none;padding:10px;}
 
 .header{
@@ -73,10 +73,24 @@ input,select,button{
     padding:6px;
     margin:6px 0;
 }
+
+/* NOTIFICATION */
+#note{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:#333;
+    color:white;
+    padding:10px 15px;
+    border-radius:8px;
+    display:none;
+}
 </style>
 </head>
 
 <body>
+
+<div id="note"></div>
 
 <!-- DASHBOARD -->
 <div id="dashboard" class="dashboard">
@@ -91,25 +105,16 @@ input,select,button{
 <div id="header" class="header"></div>
 
 <button onclick="back()">⬅ Zurück</button>
-<button onclick="openTrash()">🗑 Papierkorb</button>
-
-<div id="main">
 
 <div class="card">
+
 <h3>Neues Paket</h3>
 
 <input id="search" placeholder="🔍 Suche Name oder ID" oninput="render()">
 
 <input id="name" placeholder="Name">
-
-<select id="size">
-<option>S</option><option>M</option><option>L</option><option>XL</option>
-</select>
-
-<select id="form">
-<option>Paket</option><option>Tüte</option><option>Box</option><option>Lang</option>
-</select>
-
+<select id="size"><option>S</option><option>M</option><option>L</option><option>XL</option></select>
+<select id="form"><option>Paket</option><option>Tüte</option><option>Box</option></select>
 <input id="info" placeholder="Info">
 
 <button onclick="addPackage()">Speichern</button>
@@ -120,23 +125,28 @@ input,select,button{
 
 </div>
 
-<!-- TRASH -->
-<div id="trash" style="display:none;"></div>
-
-</div>
-
 <script>
 
 let currentFirma=null;
 
 let data=JSON.parse(localStorage.getItem("db"))||{
- dpd:{counter:1000,customers:{},trash:[]},
- gls:{counter:2000,customers:{},trash:[]},
- hermes:{counter:3000,customers:{},trash:[]}
+ dpd:{counter:1000,customers:{}},
+ gls:{counter:2000,customers:{}},
+ hermes:{counter:3000,customers:{}}
 };
+
+let editMode=null;
 
 function save(){
  localStorage.setItem("db",JSON.stringify(data));
+}
+
+/* NOTIFICATION */
+function notify(text){
+ let n=document.getElementById("note");
+ n.innerText=text;
+ n.style.display="block";
+ setTimeout(()=>n.style.display="none",2000);
 }
 
 /* OPEN */
@@ -144,10 +154,9 @@ function openFirma(f){
  currentFirma=f;
  document.getElementById("dashboard").style.display="none";
  document.getElementById("app").style.display="block";
- document.getElementById("main").style.display="block";
- document.getElementById("trash").style.display="none";
 
- document.getElementById("header").innerText=f.toUpperCase();
+ let names={dpd:"DPD",gls:"GLS",hermes:"Hermes"};
+ document.getElementById("header").innerText=names[f];
 
  render();
 }
@@ -158,7 +167,7 @@ function back(){
  document.getElementById("app").style.display="none";
 }
 
-/* ADD */
+/* ADD / EDIT */
 function addPackage(){
 
  let name=document.getElementById("name").value.trim();
@@ -169,86 +178,69 @@ function addPackage(){
  if(!f.customers[name]){
   f.customers[name]={
    id:f.counter++,
-   packages:[],
-   created:Date.now()
+   packages:[]
   };
  }
 
- f.customers[name].packages.push({
+ let pkg={
   size:document.getElementById("size").value,
   form:document.getElementById("form").value,
   info:document.getElementById("info").value,
   time:Date.now()
- });
+ };
+
+ if(editMode){
+  f.customers[name].packages[editMode]=pkg;
+  editMode=null;
+  notify("✏ Paket bearbeitet");
+ }else{
+  f.customers[name].packages.push(pkg);
+  notify("✅ Paket gespeichert");
+ }
 
  save();
+ clearInputs();
  render();
 }
 
-/* DELETE -> TRASH */
+function clearInputs(){
+ document.getElementById("name").value="";
+ document.getElementById("info").value="";
+}
+
+/* EDIT BUTTON */
+function editPackage(name,index){
+
+ let p=data[currentFirma].customers[name].packages[index];
+
+ document.getElementById("name").value=name;
+ document.getElementById("size").value=p.size;
+ document.getElementById("form").value=p.form;
+ document.getElementById("info").value=p.info;
+
+ editMode=index;
+}
+
+/* DELETE */
 function deleteCustomer(name){
-
- if(!confirm("In Papierkorb verschieben?")) return;
-
- let f=data[currentFirma];
- let item=f.customers[name];
-
- f.trash.push({
-  name:name,
-  data:item,
-  deletedAt:Date.now()
- });
-
- delete f.customers[name];
+ if(!confirm("Wirklich löschen?")) return;
+ delete data[currentFirma].customers[name];
  save();
  render();
+ notify("🗑 gelöscht");
 }
 
-/* RESTORE */
-function restore(index){
-
+/* STATS */
+function getStats(){
  let f=data[currentFirma];
- let item=f.trash[index];
+ let count=Object.keys(f.customers).length;
+ let packs=0;
 
- f.customers[item.name]=item.data;
+ for(let n in f.customers){
+  packs+=f.customers[n].packages.length;
+ }
 
- f.trash.splice(index,1);
-
- save();
- renderTrash();
-}
-
-/* TRASH VIEW */
-function openTrash(){
-
- document.getElementById("main").style.display="none";
- document.getElementById("trash").style.display="block";
-
- renderTrash();
-}
-
-function renderTrash(){
-
- let t=document.getElementById("trash");
- t.innerHTML="<h3>Papierkorb</h3>";
-
- let f=data[currentFirma];
-
- let now=Date.now();
-
- f.trash=f.trash.filter(x=>{
-  return now-x.deletedAt < 86400000; // 24h
- });
-
- f.trash.forEach((x,i)=>{
-  t.innerHTML+=`
-  <div class="card">
-   <b>${x.name}</b><br>
-   <button onclick="restore(${i})">♻ Wiederherstellen</button>
-  </div>`;
- });
-
- save();
+ return `👥 Kunden: ${count} | 📦 Pakete: ${packs}`;
 }
 
 /* RENDER */
@@ -259,6 +251,8 @@ function render(){
 
  let f=data[currentFirma];
  let search=document.getElementById("search").value.toLowerCase();
+
+ list.innerHTML+=`<div class="card">${getStats()}</div>`;
 
  for(let name in f.customers){
 
@@ -275,9 +269,10 @@ function render(){
   c.packages.forEach((p,i)=>{
    html+=`
    <div class="item">
-   Paket ${i+1}<br>
-   ${p.size} | ${p.form}<br>
-   ${p.info || ""}
+    Paket ${i+1}<br>
+    ${p.size} | ${p.form}<br>
+    ${p.info||""}<br>
+    <button onclick="editPackage('${name}',${i})">✏ Bearbeiten</button>
    </div>`;
   });
 
