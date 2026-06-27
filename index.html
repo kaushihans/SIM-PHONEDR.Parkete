@@ -16,12 +16,6 @@
     --text:#111;
 }
 
-body.dark{
-    --bg:#121212;
-    --card:#1e1e1e;
-    --text:#f1f1f1;
-}
-
 body{
     margin:0;
     font-family:Arial;
@@ -50,11 +44,7 @@ body{
 .gls{background:var(--gls);}
 .hermes{background:var(--hermes);}
 
-/* APP */
-.app{
-    display:none;
-    padding:10px;
-}
+.app{display:none;padding:10px;}
 
 .header{
     padding:15px;
@@ -72,24 +62,16 @@ body{
     border-radius:8px;
 }
 
-/* INPUT */
-input,select{
+input,select,button{
     width:100%;
     padding:8px;
     margin:5px 0;
 }
 
-/* BUTTON */
-button{
-    padding:6px;
-    cursor:pointer;
-}
-
-/* ITEM */
 .item{
     border-left:4px solid #999;
-    padding:8px;
-    margin:8px 0;
+    padding:6px;
+    margin:6px 0;
 }
 </style>
 </head>
@@ -98,11 +80,9 @@ button{
 
 <!-- DASHBOARD -->
 <div id="dashboard" class="dashboard">
-
 <div class="box dpd" onclick="openFirma('dpd')">DPD</div>
 <div class="box gls" onclick="openFirma('gls')">GLS</div>
 <div class="box hermes" onclick="openFirma('hermes')">HERMES</div>
-
 </div>
 
 <!-- APP -->
@@ -111,9 +91,11 @@ button{
 <div id="header" class="header"></div>
 
 <button onclick="back()">⬅ Zurück</button>
+<button onclick="openTrash()">🗑 Papierkorb</button>
+
+<div id="main">
 
 <div class="card">
-
 <h3>Neues Paket</h3>
 
 <input id="search" placeholder="🔍 Suche Name oder ID" oninput="render()">
@@ -128,7 +110,7 @@ button{
 <option>Paket</option><option>Tüte</option><option>Box</option><option>Lang</option>
 </select>
 
-<input id="info" placeholder="Info optional">
+<input id="info" placeholder="Info">
 
 <button onclick="addPackage()">Speichern</button>
 
@@ -138,14 +120,19 @@ button{
 
 </div>
 
+<!-- TRASH -->
+<div id="trash" style="display:none;"></div>
+
+</div>
+
 <script>
 
-let currentFirma = null;
+let currentFirma=null;
 
-let data = JSON.parse(localStorage.getItem("db")) || {
- dpd:{counter:1000,customers:{}},
- gls:{counter:2000,customers:{}},
- hermes:{counter:3000,customers:{}}
+let data=JSON.parse(localStorage.getItem("db"))||{
+ dpd:{counter:1000,customers:{},trash:[]},
+ gls:{counter:2000,customers:{},trash:[]},
+ hermes:{counter:3000,customers:{},trash:[]}
 };
 
 function save(){
@@ -154,13 +141,14 @@ function save(){
 
 /* OPEN */
 function openFirma(f){
- currentFirma = f;
-
+ currentFirma=f;
  document.getElementById("dashboard").style.display="none";
  document.getElementById("app").style.display="block";
+ document.getElementById("main").style.display="block";
+ document.getElementById("trash").style.display="none";
 
- const names = {dpd:"DPD",gls:"GLS",hermes:"Hermes"};
- document.getElementById("header").innerText = names[f];
+ document.getElementById("header").innerText=f.toUpperCase();
+
  render();
 }
 
@@ -173,84 +161,131 @@ function back(){
 /* ADD */
 function addPackage(){
 
- let name = document.getElementById("name").value.trim();
- let size = document.getElementById("size").value;
- let form = document.getElementById("form").value;
- let info = document.getElementById("info").value;
-
+ let name=document.getElementById("name").value.trim();
  if(!name) return;
 
- let firma = data[currentFirma];
+ let f=data[currentFirma];
 
- if(!firma.customers[name]){
-  firma.customers[name] = {
-   id: firma.counter++,
-   packages:[]
+ if(!f.customers[name]){
+  f.customers[name]={
+   id:f.counter++,
+   packages:[],
+   created:Date.now()
   };
  }
 
- firma.customers[name].packages.push({
-  size, form, info,
+ f.customers[name].packages.push({
+  size:document.getElementById("size").value,
+  form:document.getElementById("form").value,
+  info:document.getElementById("info").value,
   time:Date.now()
  });
 
  save();
-
- document.getElementById("name").value="";
- document.getElementById("info").value="";
-
  render();
 }
 
-/* DELETE CUSTOMER */
+/* DELETE -> TRASH */
 function deleteCustomer(name){
- if(confirm("Wirklich löschen?")){
-  delete data[currentFirma].customers[name];
-  save();
-  render();
- }
+
+ if(!confirm("In Papierkorb verschieben?")) return;
+
+ let f=data[currentFirma];
+ let item=f.customers[name];
+
+ f.trash.push({
+  name:name,
+  data:item,
+  deletedAt:Date.now()
+ });
+
+ delete f.customers[name];
+ save();
+ render();
 }
 
-/* RENDER + SEARCH */
+/* RESTORE */
+function restore(index){
+
+ let f=data[currentFirma];
+ let item=f.trash[index];
+
+ f.customers[item.name]=item.data;
+
+ f.trash.splice(index,1);
+
+ save();
+ renderTrash();
+}
+
+/* TRASH VIEW */
+function openTrash(){
+
+ document.getElementById("main").style.display="none";
+ document.getElementById("trash").style.display="block";
+
+ renderTrash();
+}
+
+function renderTrash(){
+
+ let t=document.getElementById("trash");
+ t.innerHTML="<h3>Papierkorb</h3>";
+
+ let f=data[currentFirma];
+
+ let now=Date.now();
+
+ f.trash=f.trash.filter(x=>{
+  return now-x.deletedAt < 86400000; // 24h
+ });
+
+ f.trash.forEach((x,i)=>{
+  t.innerHTML+=`
+  <div class="card">
+   <b>${x.name}</b><br>
+   <button onclick="restore(${i})">♻ Wiederherstellen</button>
+  </div>`;
+ });
+
+ save();
+}
+
+/* RENDER */
 function render(){
 
- let list = document.getElementById("list");
- let search = document.getElementById("search").value.toLowerCase();
-
+ let list=document.getElementById("list");
  list.innerHTML="";
 
- let customers = data[currentFirma].customers;
+ let f=data[currentFirma];
+ let search=document.getElementById("search").value.toLowerCase();
 
- for(let name in customers){
-
-  let c = customers[name];
+ for(let name in f.customers){
 
   if(search &&
-     !name.toLowerCase().includes(search) &&
-     !String(c.id).includes(search)){
-   continue;
-  }
+   !name.toLowerCase().includes(search) &&
+   !String(f.customers[name].id).includes(search)
+  ) continue;
 
-  let html = `
-  <div class="card">
-    <h3>📦 ID ${c.id} – ${name}</h3>
-  `;
+  let c=f.customers[name];
+
+  let html=`<div class="card">
+  <h3>${name} (ID ${c.id})</h3>`;
 
   c.packages.forEach((p,i)=>{
-   html += `
+   html+=`
    <div class="item">
-    <b>Paket ${i+1}</b><br>
-    Größe: ${p.size}<br>
-    Form: ${p.form}<br>
-    Info: ${p.info || "-"}
+   Paket ${i+1}<br>
+   ${p.size} | ${p.form}<br>
+   ${p.info || ""}
    </div>`;
   });
 
-  html += `
+  html+=`
   <button onclick="deleteCustomer('${name}')">🗑 Löschen</button>
   </div>`;
 
-  list.innerHTML += html;
+  list.innerHTML+=html;
  }
 }
 
