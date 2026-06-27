@@ -1,116 +1,260 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paketshop Pro V5</title>
+
+<style>
+:root{
+    --dpd:#d60000;
+    --gls:#0b2a6f;
+    --hermes:#4aa3ff;
+
+    --bg:#f4f6f8;
+    --card:#fff;
+    --text:#111;
+}
+
+body.dark{
+    --bg:#121212;
+    --card:#1e1e1e;
+    --text:#f1f1f1;
+}
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:var(--bg);
+    color:var(--text);
+}
+
+/* DASHBOARD */
+.dashboard{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    height:100vh;
+}
+
+.box{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:28px;
+    font-weight:bold;
+    color:white;
+    cursor:pointer;
+}
+
+.dpd{background:var(--dpd);}
+.gls{background:var(--gls);}
+.hermes{background:var(--hermes);}
+
+/* APP */
+.app{
+    display:none;
+    padding:10px;
+}
+
+.header{
+    padding:15px;
+    color:white;
+    font-size:20px;
+    font-weight:bold;
+    border-radius:8px;
+    margin-bottom:10px;
+}
+
+.card{
+    background:var(--card);
+    padding:10px;
+    margin:10px 0;
+    border-radius:8px;
+}
+
+/* INPUT */
+input,select{
+    width:100%;
+    padding:8px;
+    margin:5px 0;
+}
+
+/* BUTTON */
+button{
+    padding:6px;
+    cursor:pointer;
+}
+
+/* ITEM */
+.item{
+    border-left:4px solid #999;
+    padding:8px;
+    margin:8px 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="dashboard">
+
+<div class="box dpd" onclick="openFirma('dpd')">DPD</div>
+<div class="box gls" onclick="openFirma('gls')">GLS</div>
+<div class="box hermes" onclick="openFirma('hermes')">HERMES</div>
+
+</div>
+
+<!-- APP -->
+<div id="app" class="app">
+
+<div id="header" class="header"></div>
+
+<button onclick="back()">⬅ Zurück</button>
+
+<div class="card">
+
+<h3>Neues Paket</h3>
+
+<input id="search" placeholder="🔍 Suche Name oder ID" oninput="render()">
+
+<input id="name" placeholder="Name">
+
+<select id="size">
+<option>S</option><option>M</option><option>L</option><option>XL</option>
+</select>
+
+<select id="form">
+<option>Paket</option><option>Tüte</option><option>Box</option><option>Lang</option>
+</select>
+
+<input id="info" placeholder="Info optional">
+
+<button onclick="addPackage()">Speichern</button>
+
+</div>
+
+<div id="list"></div>
+
+</div>
+
+<script>
+
 let currentFirma = null;
 
 let data = JSON.parse(localStorage.getItem("db")) || {
-    dpd: { counter: 1000, customers: {} },
-    gls: { counter: 2000, customers: {} },
-    hermes: { counter: 3000, customers: {} }
+ dpd:{counter:1000,customers:{}},
+ gls:{counter:2000,customers:{}},
+ hermes:{counter:3000,customers:{}}
 };
 
 function save(){
-    localStorage.setItem("db", JSON.stringify(data));
+ localStorage.setItem("db",JSON.stringify(data));
 }
 
-/* NAVIGATION */
+/* OPEN */
 function openFirma(f){
-    currentFirma = f;
+ currentFirma = f;
 
-    document.getElementById("dashboard").style.display = "none";
-    document.getElementById("app").style.display = "block";
+ document.getElementById("dashboard").style.display="none";
+ document.getElementById("app").style.display="block";
 
-    const names = {
-        dpd:"DPD",
-        gls:"GLS",
-        hermes:"Hermes"
-    };
-
-    document.getElementById("header").innerText = names[f];
-    document.getElementById("header").style.background = getColor(f);
-
-    render();
+ const names = {dpd:"DPD",gls:"GLS",hermes:"Hermes"};
+ document.getElementById("header").innerText = names[f];
+ render();
 }
 
+/* BACK */
 function back(){
-    document.getElementById("dashboard").style.display = "grid";
-    document.getElementById("app").style.display = "none";
+ document.getElementById("dashboard").style.display="grid";
+ document.getElementById("app").style.display="none";
 }
 
-/* COLOR */
-function getColor(f){
-    if(f==="dpd") return "var(--dpd)";
-    if(f==="gls") return "var(--gls)";
-    if(f==="hermes") return "var(--hermes)";
-}
-
-/* ADD PACKAGE */
+/* ADD */
 function addPackage(){
 
-    let name = document.getElementById("name").value.trim();
-    let size = document.getElementById("size").value;
-    let form = document.getElementById("form").value;
-    let info = document.getElementById("info").value;
+ let name = document.getElementById("name").value.trim();
+ let size = document.getElementById("size").value;
+ let form = document.getElementById("form").value;
+ let info = document.getElementById("info").value;
 
-    if(!name) return;
+ if(!name) return;
 
-    let firma = data[currentFirma];
+ let firma = data[currentFirma];
 
-    // 👇 Kunde existiert nicht -> neu erstellen
-    if(!firma.customers[name]){
-        firma.customers[name] = {
-            id: firma.counter++,
-            packages: []
-        };
-    }
+ if(!firma.customers[name]){
+  firma.customers[name] = {
+   id: firma.counter++,
+   packages:[]
+  };
+ }
 
-    // Paket hinzufügen
-    firma.customers[name].packages.push({
-        size,
-        form,
-        info,
-        time: Date.now()
-    });
+ firma.customers[name].packages.push({
+  size, form, info,
+  time:Date.now()
+ });
 
-    save();
-    clearInputs();
-    render();
+ save();
+
+ document.getElementById("name").value="";
+ document.getElementById("info").value="";
+
+ render();
 }
 
-/* CLEAR INPUTS */
-function clearInputs(){
-    document.getElementById("name").value = "";
-    document.getElementById("info").value = "";
+/* DELETE CUSTOMER */
+function deleteCustomer(name){
+ if(confirm("Wirklich löschen?")){
+  delete data[currentFirma].customers[name];
+  save();
+  render();
+ }
 }
 
-/* RENDER */
+/* RENDER + SEARCH */
 function render(){
 
-    let list = document.getElementById("list");
-    list.innerHTML = "";
+ let list = document.getElementById("list");
+ let search = document.getElementById("search").value.toLowerCase();
 
-    let customers = data[currentFirma].customers;
+ list.innerHTML="";
 
-    for(let name in customers){
+ let customers = data[currentFirma].customers;
 
-        let c = customers[name];
+ for(let name in customers){
 
-        let html = `
-        <div class="card">
-            <h3>📦 ID ${c.id} – ${name}</h3>
-        `;
+  let c = customers[name];
 
-        c.packages.forEach((p, i)=>{
-            html += `
-            <div style="margin-left:10px; border-left:3px solid #ccc; padding-left:10px;">
-                <b>Paket ${i+1}</b><br>
-                Größe: ${p.size}<br>
-                Form: ${p.form}<br>
-                Info: ${p.info || "-"}<br>
-            </div>
-            <br>
-            `;
-        });
+  if(search &&
+     !name.toLowerCase().includes(search) &&
+     !String(c.id).includes(search)){
+   continue;
+  }
 
-        html += `</div>`;
+  let html = `
+  <div class="card">
+    <h3>📦 ID ${c.id} – ${name}</h3>
+  `;
 
-        list.innerHTML += html;
-    }
+  c.packages.forEach((p,i)=>{
+   html += `
+   <div class="item">
+    <b>Paket ${i+1}</b><br>
+    Größe: ${p.size}<br>
+    Form: ${p.form}<br>
+    Info: ${p.info || "-"}
+   </div>`;
+  });
+
+  html += `
+  <button onclick="deleteCustomer('${name}')">🗑 Löschen</button>
+  </div>`;
+
+  list.innerHTML += html;
+ }
 }
+
+</script>
+
+</body>
+</html>
