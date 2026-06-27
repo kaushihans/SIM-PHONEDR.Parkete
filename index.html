@@ -1,28 +1,116 @@
-<div class="card">
-    <h3>Neues Paket</h3>
+let currentFirma = null;
 
-    <input id="name" placeholder="Name">
+let data = JSON.parse(localStorage.getItem("db")) || {
+    dpd: { counter: 1000, customers: {} },
+    gls: { counter: 2000, customers: {} },
+    hermes: { counter: 3000, customers: {} }
+};
 
-    <select id="size">
-        <option>S</option>
-        <option>M</option>
-        <option>L</option>
-        <option>XL</option>
-    </select>
+function save(){
+    localStorage.setItem("db", JSON.stringify(data));
+}
 
-    <select id="form">
-        <option>Paket</option>
-        <option>Tüte</option>
-        <option>Box</option>
-        <option>Lang & flach</option>
-    </select>
+/* NAVIGATION */
+function openFirma(f){
+    currentFirma = f;
 
-    <input id="info" placeholder="Info (optional)">
+    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("app").style.display = "block";
 
-    <button onclick="addPackage()">Speichern</button>
-</div>
+    const names = {
+        dpd:"DPD",
+        gls:"GLS",
+        hermes:"Hermes"
+    };
 
-<div class="card">
-    <h3>Kunden</h3>
-    <div id="list"></div>
-</div>
+    document.getElementById("header").innerText = names[f];
+    document.getElementById("header").style.background = getColor(f);
+
+    render();
+}
+
+function back(){
+    document.getElementById("dashboard").style.display = "grid";
+    document.getElementById("app").style.display = "none";
+}
+
+/* COLOR */
+function getColor(f){
+    if(f==="dpd") return "var(--dpd)";
+    if(f==="gls") return "var(--gls)";
+    if(f==="hermes") return "var(--hermes)";
+}
+
+/* ADD PACKAGE */
+function addPackage(){
+
+    let name = document.getElementById("name").value.trim();
+    let size = document.getElementById("size").value;
+    let form = document.getElementById("form").value;
+    let info = document.getElementById("info").value;
+
+    if(!name) return;
+
+    let firma = data[currentFirma];
+
+    // 👇 Kunde existiert nicht -> neu erstellen
+    if(!firma.customers[name]){
+        firma.customers[name] = {
+            id: firma.counter++,
+            packages: []
+        };
+    }
+
+    // Paket hinzufügen
+    firma.customers[name].packages.push({
+        size,
+        form,
+        info,
+        time: Date.now()
+    });
+
+    save();
+    clearInputs();
+    render();
+}
+
+/* CLEAR INPUTS */
+function clearInputs(){
+    document.getElementById("name").value = "";
+    document.getElementById("info").value = "";
+}
+
+/* RENDER */
+function render(){
+
+    let list = document.getElementById("list");
+    list.innerHTML = "";
+
+    let customers = data[currentFirma].customers;
+
+    for(let name in customers){
+
+        let c = customers[name];
+
+        let html = `
+        <div class="card">
+            <h3>📦 ID ${c.id} – ${name}</h3>
+        `;
+
+        c.packages.forEach((p, i)=>{
+            html += `
+            <div style="margin-left:10px; border-left:3px solid #ccc; padding-left:10px;">
+                <b>Paket ${i+1}</b><br>
+                Größe: ${p.size}<br>
+                Form: ${p.form}<br>
+                Info: ${p.info || "-"}<br>
+            </div>
+            <br>
+            `;
+        });
+
+        html += `</div>`;
+
+        list.innerHTML += html;
+    }
+}
